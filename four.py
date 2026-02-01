@@ -60,10 +60,13 @@ TODO:
 - better handling of large paragraphs that don't fit in a frame
 - numbered lists w/levels
 - make a central switch styles function
+- recursive file handling
+- recipe file processing
 
 TODO BUGS:
 * Nested numbered lists does not turn off correctly
 * mixed list type pops
+* newpage
 
 """
 import random
@@ -246,7 +249,11 @@ class Booklet:
     def processCommand(self, line):
         tokens = line.split()
         match tokens[0].lower():
-            case ".newpage":
+            case ".file":
+                if len(tokens) > 1:
+                    print ('Processing file {tokens[1]}')
+                    self.processFile(tokens[1])
+            case ".newpage": # | ".np" | ".page":
                 self.addContent(FrameBreak())
             case ".list": # start a list  
                 if len(tokens) == 1:
@@ -527,8 +534,8 @@ if __name__ == "__main__":
     if outFilename[-4:] != ".pdf": outFilename += ".pdf"
     """
 
-    inFilename = "input.txt"
     inFilename = "input.md"
+    inFilename = "input.txt"
     """
     doc = FourPage(nameOut="out4.pdf", 
                        docSize=letter,
