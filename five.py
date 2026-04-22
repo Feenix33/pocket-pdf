@@ -40,6 +40,72 @@ PROCESS
 
 import argparse
 import os
+from reportlab.lib.pagesizes import A4, landscape, letter, portrait
+from reportlab.lib import colors
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import inch
+import reportlab.lib.enums 
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.platypus import Frame, FrameBreak, Spacer, Paragraph
+
+class Booklet: 
+    """ The render engine for the pocket book maker
+        Proper add the rotation which has to be done manually
+    """
+    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.3*inch, showFrames=False, drawFolds=True):
+        self.docSize = docSize
+        self.margin = marginSize # CFG
+        self.showFrames = showFrames # CFG
+        self.drawFolds = drawFolds # CFG
+        self.canvas = Canvas(nameOut, pagesize=self.docSize)
+        self.frameN = 0
+
+def testProce(f):
+    for line in f:
+        print (line.strip())
+
+
+def processHeader(f):
+    """
+    .layout #   Layout is 1,2,4,8 page
+    .frames     Show frames
+    .fold       Show folds 
+    .margin #   Size of margins
+    """
+    # defaults
+    layout = 4
+    showFrames = False
+    drawFolds = False
+    margin = 0.3*inch
+
+def processInputFile(inputFilename, outputFilename):
+    """
+    Process the input file content and generate the output PDF.
+    """
+    try:
+        with open(inputFilename, 'r') as f:
+            """
+            Process the header
+            """
+            n = 0
+            for line in f:
+                print (line.strip())
+                n+=1
+                if n >= 3:
+                    break
+            print ("/nEngage second processor/n")
+            # create the booklet object
+
+            # Process the body
+            testProce(f)
+            #content = f.read()
+        print("File processed successfully.")
+    except FileNotFoundError:
+        print(f"Error: Input file '{inputFilename}' not found.")
+    except Exception as e:
+        print(f"Error: {e}")
 
 def parse_arguments():
     """
@@ -55,80 +121,27 @@ def parse_arguments():
     if args.output is None:
         # If output not provided, use input file name with .pdf extension
         base_name = os.path.splitext(args.input)[0]
-        output_file = base_name + '.pdf'
+        outputFilename = base_name + '.pdf'
     else:
         # Ensure output file has .pdf extension
         if not args.output.endswith('.pdf'):
-            output_file = args.output + '.pdf'
+            outputFilename = args.output + '.pdf'
         else:
-            output_file = args.output
+            outputFilename = args.output
 
-    return args.input, output_file
+    return args.input, outputFilename
 
 def main():
-    input_file, output_file = parse_arguments()
 
-    print(f"Input file: {input_file}")
-    print(f"Output file: {output_file}")
-
-    # Demo: Read from input file and write to output file
-    try:
-        with open(input_file, 'r') as f:
-            content = f.read()
-        with open(output_file, 'w') as f:
-            f.write(content)
-        print("File processed successfully.")
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-    except Exception as e:
-        print(f"Error: {e}")
-
-if __name__ == '__main__':
-    main()
-import argparse
-import os
-
-def parse_arguments():
     """
-    Parse command line arguments for input and output files.
+    Read command line arguments
     """
-    parser = argparse.ArgumentParser(description='Demo program that processes input and output files.')
-    parser.add_argument('-i', '--input', default='input.txt', help='Input file name (default: input.txt)')
-    parser.add_argument('-o', '--output', help='Output file name (must have .pdf extension)')
+    inputFilename, outputFilename = parse_arguments()
 
-    args = parser.parse_args()
+    print(f"Input file: {inputFilename}")
+    print(f"Output file: {outputFilename}")
 
-    # Determine output file name
-    if args.output is None:
-        # If output not provided, use input file name with .pdf extension
-        base_name = os.path.splitext(args.input)[0]
-        output_file = base_name + '.pdf'
-    else:
-        # Ensure output file has .pdf extension
-        if not args.output.endswith('.pdf'):
-            output_file = args.output + '.pdf'
-        else:
-            output_file = args.output
-
-    return args.input, output_file
-
-def main():
-    input_file, output_file = parse_arguments()
-
-    print(f"Input file: {input_file}")
-    print(f"Output file: {output_file}")
-
-    # Demo: Read from input file and write to output file
-    try:
-        with open(input_file, 'r') as f:
-            content = f.read()
-        with open(output_file, 'w') as f:
-            f.write(content)
-        print("File processed successfully.")
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-    except Exception as e:
-        print(f"Error: {e}")
+    processInputFile(inputFilename, outputFilename)
 
 if __name__ == '__main__':
     main()
