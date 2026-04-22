@@ -6,3 +6,4 @@ Another attempt at a program that can create 8-up booklets from a letter-sized s
 |cfgpocket.py | Pocket config |
 |proff.py | the pocket parser |
 |four.py | Third and fourth attempts. Does 4 & 8 page printing. |
+|five.py | Attempt 5. No separate config |

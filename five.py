@@ -17,6 +17,7 @@ COMMANDS
 .font <font params> adjust the current font
 .newpage    force a framebreak (page because pocket docs)
 .spacer   add a spacer of current font size
+.file       Read in a file and process it, ignore config in the file 
 
 CONFIG
 .layout #   Layout is 1,2,4,8 page
