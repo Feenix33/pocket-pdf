@@ -54,59 +54,213 @@ class Booklet:
     """ The render engine for the pocket book maker
         Proper add the rotation which has to be done manually
     """
-    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.3*inch, showFrames=False, drawFolds=True):
+    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.3*inch, showFrames=True, drawFolds=False):
         self.docSize = docSize
         self.margin = marginSize # CFG
         self.showFrames = showFrames # CFG
         self.drawFolds = drawFolds # CFG
-        self.canvas = Canvas(nameOut, pagesize=self.docSize)
         self.frameN = 0
+        self.canvas = None
+        self.layout = 4 # CFG
+        self.nameOut = nameOut
+    
+    def create(self):
+        print("Creating canvas and defining frames...")
+        self.frames, self.frameRotate = self.defineFrames()
+        #print (f"Frames defined: {len(self.frames)}.")
+        self.currentStyle = self.buildParagraphStyle()
+        #print("style defined. Creating canvas...")
+        self.canvas = Canvas(self.nameOut, pagesize=self.docSize)
+        #print("canvas created.")
+        self.frameN = 0
+        self.currentFrame = self.frames[self.frameN]
+        if self.showFrames: self.currentFrame.drawBoundary(self.canvas)
+        if self.drawFolds: self.drawFoldlines(self.canvas)
 
-def testProce(f):
-    for line in f:
-        print (line.strip())
+    def defineFrames(self):
+        # Define frames for the 4-page layout
+        width, height = self.docSize
+        w = (width - 2*self.margin) / 2
+        h = (height - 2*self.margin) / 2
+        if self.layout == 1:
+            frames = [Frame(self.margin, self.margin, width - 2*self.margin, height - 2*self.margin, id='frame1')]
+            rotate = [False]
+        elif self.layout == 2:
+            frames = [
+                Frame(self.margin, self.margin, width - 2*self.margin, (height - 2*self.margin) / 2, id='frame1'),  # Page 1
+                Frame(self.margin, self.margin + (height - 2*self.margin) / 2, width - 2*self.margin, (height - 2*self.margin) / 2, id='frame2')   # Page 2
+            ]
+            rotate = [False, False]
+        elif self.layout == 4:  
+            frames = [
+                Frame(self.margin, self.margin + h, w, h, id='frame1'),  # Page 1
+                Frame(self.margin + w, self.margin + h, w, h, id='frame2'),  # Page 2
+                Frame(self.margin + w, self.margin, w, h, id='frame3'),  # Page 3
+                Frame(self.margin, self.margin, w, h, id='frame4')   # Page 4
+            ]
+            rotate =  [False, True, False, True]
+        elif self.layout == 8:
+            def defineFrame(self, x,y, w,h, m):
+                return Frame(x+m, y+m, w-m-m, h-m-m)
+            # 6 5 4 3 upside down
+            # 7 0 1 2
+            fWidth = docWidth / 4
+            fHeight = docHeight / 2
+
+            f0 = self.defineFrame(0*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f1 = self.defineFrame(1*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f2 = self.defineFrame(2*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f3 = self.defineFrame(3*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            # top half (upside down)
+            f4 = self.defineFrame(0*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f5 = self.defineFrame(1*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f6 = self.defineFrame(2*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f7 = self.defineFrame(3*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+
+            frames = [f1, f2, f3, f4, f5, f6, f7, f0]
+            rotate = [False, False, False, True, False, False, False, True]
+        else:
+            raise ValueError("Invalid layout value. Supported values are 1, 2, 4, or 8.")
+
+        return frames, rotate
+
+    def buildParagraphStyle(self, name='CurrentStyle',
+            textColor=colors.black,
+            backColor=colors.white,
+            alignment=reportlab.lib.enums.TA_LEFT,
+            align=None,
+            firstLineIndent=0,
+            leftIndent=0,
+            bulletIndent=0,
+            fontName='Helvetica',
+            fontSize=10,
+            spaceBefore=0,
+            spaceAfter=None,
+            leading=None):
+        if leading == None: leading = int(fontSize * 1.2)
+        if spaceAfter == None: spaceAfter = int(fontSize * 1.2)
+        tempAlign = alignment if align == None else self.alignmentStrToEnum(align.lower())
+        return ParagraphStyle(
+            name=name,
+            backColor = backColor,
+            textColor = textColor,
+            alignment = tempAlign,
+            firstLineIndent = firstLineIndent,
+            leftIndent=leftIndent,
+            bulletIndent=bulletIndent,
+            fontName=fontName,
+            fontSize=fontSize,
+            spaceBefore=spaceBefore,
+            spaceAfter=spaceAfter,
+            leading=leading)
+
+    def drawFoldlines(self):
+        if self.layout == 4:
+            self.canvas.saveState()
+            self.canvas.setDash(1,5) # on off
+            self.canvas.line(0, self.docSize[1]/2, self.docSize[0], self.docSize[1]/2)
+            self.canvas.line(self.docSize[0]/2, 0, self.docSize[0]/2, self.docSize[1])
+            self.canvas.restoreState()
+        elif self.layout == 8:
+            self.canvas.saveState()
+            self.canvas.setDash(1,5) # on off
+            self.canvas.line(0, self.docSize[1]/2, self.docSize[0], self.docSize[1]/2)
+            self.canvas.setStrokeColor('red')
+            for x in [2.75, 5.5, 8.25]: #TODO adjust to doc size
+                self.canvas.line(x*inch, 0*inch, x*inch, 8.5*inch)
+            self.canvas.restoreState()
+
+    def RotatePage(self):
+        self.canvas.translate(self.docSize[0]/2, self.docSize[1]/2)
+        self.canvas.rotate(180)
+        self.canvas.translate(-self.docSize[0]/2, -self.docSize[1]/2)
+
+    def processFile(self, inputFilename):
+        # Process the input file content and generate the output PDF.
+        print(f"Processing input file '{inputFilename}'...")
+        try:
+            with open(inputFilename, 'r') as f:
+                print (f"Input file '{inputFilename}' opened successfully. Reading content...")
+                for line in f:
+                    line = line.strip()
+                    if self.canvas is None:
+                         # Process configuration commands in the header before creating the canvas
+                         self.processHeaderLine(line)
+                    else:
+                        # process content lines and commands
+                         self.processContentLine(line)
+            print(f"Input file '{inputFilename}' processed successfully.")
+        except FileNotFoundError:
+            print(f"Error: Input file '{inputFilename}' not found.")
+        except Exception as e:
+            print(f"Error: {e}")
+    
+    def processHeaderLine(self, line):
+        print (f"Processing header line: '{line}'")
+        # Process configuration commands in the header before creating the canvas
+        if line.startswith('.layout'):
+            try:
+                self.layout = int(line.split()[1])
+            except (IndexError, ValueError):
+                print("Invalid layout value. Using default (4).")
+        elif line.startswith('.frames'):
+            arg = line.split()[1] if len(line.split()) > 1 else ''
+            self.showFrames = arg.lower() not in ['0', 'false']
+        elif line.startswith('.fold'):
+            arg = line.split()[1] if len(line.split()) > 1 else ''
+            self.drawFolds = arg.lower() not in ['0', 'false']
+        elif line.startswith('.margin'):
+            try:
+                self.margin = float(line.split()[1]) * inch
+            except (IndexError, ValueError):
+                print("Invalid margin value. Using default (0.3 inch).")
+        else:
+            print("Finished processing header. Creating canvas and frames...")
+            # Stop processing header on first non-config line
+            self.create()  # Create canvas and frames after processing header
+            self.processContentLine(line)  # Process the first content line
+    
+    def processContentLine(self, line):
+        # Process content lines and commands after the header has been processed
+        if line.startswith('.'):
+             self.handleCommand(line)
+        else:
+             self.handleContent(line)
+
+    def handleCommand(self, line):
+        print ("Handling command: '{line}'")
+
+    def handleContent(self, line):
+        #print (f"Handling content line: '{line}'")
+        #TODO if obj is continuously too large need to punch out
+        #TODO if spacer don't put if we moved to a new column
+        obj = Paragraph(line, self.currentStyle)
+        if self.currentFrame.add(obj, self.canvas) == 0: # won't handle a giant paragraph
+            self.frameN += 1
+            if self.frameN >= len(self.frames):
+                self.frameN = 0
+                self.canvas.showPage()
+                self.frames = self.defineFrames(self.docSize, self.margin)
+                self.frameRotate = self.defineRotate()
+                if self.drawFolds: self.drawFoldlines(self.canvas)
+            self.currentFrame = self.frames[self.frameN]
+            
+            if self.frameRotate[self.frameN]:
+                self.RotatePage()
+            if self.showFrames: 
+                print (f"Drawing frame boundary for frame {self.frameN}...")
+                self.currentFrame.drawBoundary(self.canvas)
+            self.currentFrame.add(obj, self.canvas) #adding the failed content
+
+    def build(self):
+        #self.canvas.setAuthor(Cfg.get("author"))
+        #self.canvas.setTitle(Cfg.get("title"))
+        #self.canvas.setSubject(Cfg.get("subject"))
+        #self.canvas.setKeywords(Cfg.get("keywords"))
+        self.canvas.save()
 
 
-def processHeader(f):
-    """
-    .layout #   Layout is 1,2,4,8 page
-    .frames     Show frames
-    .fold       Show folds 
-    .margin #   Size of margins
-    """
-    # defaults
-    layout = 4
-    showFrames = False
-    drawFolds = False
-    margin = 0.3*inch
-
-def processInputFile(inputFilename, outputFilename):
-    """
-    Process the input file content and generate the output PDF.
-    """
-    try:
-        with open(inputFilename, 'r') as f:
-            """
-            Process the header
-            """
-            n = 0
-            for line in f:
-                print (line.strip())
-                n+=1
-                if n >= 3:
-                    break
-            print ("/nEngage second processor/n")
-            # create the booklet object
-
-            # Process the body
-            testProce(f)
-            #content = f.read()
-        print("File processed successfully.")
-    except FileNotFoundError:
-        print(f"Error: Input file '{inputFilename}' not found.")
-    except Exception as e:
-        print(f"Error: {e}")
-
+##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
 def parse_arguments():
     """
     Parse command line arguments for input and output files.
@@ -141,7 +295,11 @@ def main():
     print(f"Input file: {inputFilename}")
     print(f"Output file: {outputFilename}")
 
-    processInputFile(inputFilename, outputFilename)
+    print ("Starting booklet generation...")
+    booklet = Booklet(nameOut=outputFilename)
+    print (f"Booklet instance created. Processing input file '{inputFilename}'...")
+    booklet.processFile(inputFilename)
+    booklet.build()
 
 if __name__ == '__main__':
     main()
