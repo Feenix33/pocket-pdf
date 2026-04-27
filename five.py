@@ -36,6 +36,16 @@ PROCESS
 - Can do the commands above only
 
 - Process text has an optional cleaner 
+
+MASTER TODO
+- Check on redefining frames given this prototype:
+    Frame(x1, y1, width,height, leftPadding=6, bottomPadding=6, rightPadding=6, topPadding=6, id=None, showBoundary=0)
+- 2 page layout needs to swap frames page by page
+
+SHORT TERM TODO
+- Different font sizes for the layout
+- Folds
+- Checks setup commands
 """
 
 import argparse
@@ -54,68 +64,91 @@ class Booklet:
     """ The render engine for the pocket book maker
         Proper add the rotation which has to be done manually
     """
-    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.3*inch, showFrames=True, drawFolds=False):
+    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.2*inch, showFrames=True, drawFolds=True):
         self.docSize = docSize
         self.margin = marginSize # CFG
         self.showFrames = showFrames # CFG
         self.drawFolds = drawFolds # CFG
         self.frameN = 0
         self.canvas = None
-        self.layout = 4 # CFG
+        self.layout = None
         self.nameOut = nameOut
+        self.fontSize = None
     
     def create(self):
         print("Creating canvas and defining frames...")
+        if self.layout == None: self.layout = 8
+        if self.layout == 8 or self.layout == 2: self.docSize = landscape(self.docSize) # other functions dependent upon layout
+        if self.fontSize == None:
+            if self.layout == 1: self.fontSize = 12
+            elif self.layout == 2: self.fontSize = 11
+            elif self.layout == 4: self.fontSize = 10
+            elif self.layout == 8: self.fontSize = 8
         self.frames, self.frameRotate = self.defineFrames()
-        #print (f"Frames defined: {len(self.frames)}.")
-        self.currentStyle = self.buildParagraphStyle()
+        self.currentStyle = self.buildParagraphStyle(fontSize=self.fontSize, spaceAfter= 0)
         #print("style defined. Creating canvas...")
         self.canvas = Canvas(self.nameOut, pagesize=self.docSize)
         #print("canvas created.")
         self.frameN = 0
         self.currentFrame = self.frames[self.frameN]
         if self.showFrames: self.currentFrame.drawBoundary(self.canvas)
-        if self.drawFolds: self.drawFoldlines(self.canvas)
+        if self.drawFolds: self.drawFoldlines() #self.canvas)
 
     def defineFrames(self):
         # Define frames for the 4-page layout
         width, height = self.docSize
-        w = (width - 2*self.margin) / 2
-        h = (height - 2*self.margin) / 2
         if self.layout == 1:
             frames = [Frame(self.margin, self.margin, width - 2*self.margin, height - 2*self.margin, id='frame1')]
             rotate = [False]
         elif self.layout == 2:
+            #frames = [ #margins are probably off slightly
+            #    Frame(self.margin, self.margin, (width-2*self.margin) / 2, height - 2*self.margin, id='frame1'),  # Page 1
+            #    Frame(self.margin + (width-2*self.margin) / 2, self.margin, (width-2*self.margin) / 2, height - 2*self.margin, id='frame2')   # Page 2
+            #]
             frames = [
-                Frame(self.margin, self.margin, width - 2*self.margin, (height - 2*self.margin) / 2, id='frame1'),  # Page 1
-                Frame(self.margin, self.margin + (height - 2*self.margin) / 2, width - 2*self.margin, (height - 2*self.margin) / 2, id='frame2')   # Page 2
+                Frame(self.margin + (width/2), self.margin, (width-4*self.margin) / 2, height - 2*self.margin, id='frame2'),   # Page 2
+                Frame(self.margin, self.margin, (width-4*self.margin) / 2, height - 2*self.margin, id='frame1')  # Page 1
             ]
             rotate = [False, False]
         elif self.layout == 4:  
+            #  3  2
+            #  4  1
+            fw = width/2 - self.margin*2
+            fh = height/2 - self.margin*2
+            """
             frames = [
-                Frame(self.margin, self.margin + h, w, h, id='frame1'),  # Page 1
-                Frame(self.margin + w, self.margin + h, w, h, id='frame2'),  # Page 2
-                Frame(self.margin + w, self.margin, w, h, id='frame3'),  # Page 3
-                Frame(self.margin, self.margin, w, h, id='frame4')   # Page 4
+                Frame (fw + self.margin, fh + self.margin, fw, fh, id = 'frame1'),   # Page 1
+                Frame (fw + self.margin, self.margin, fw, fh, id = 'frame2'),  # Page 2
+                Frame (self.margin, self.margin, fw, fh, id = 'frame3'),  # Page 3
+                Frame (self.margin, fh + self.margin, fw, fh, id = 'frame4')  # Page 4
+            ]
+            #rotate =  [False, True, False, True]
+            """
+            frames = [
+                Frame (3*self.margin+fw, self.margin, fw, fh, id = 'frame1'),  # Page 1
+                Frame (self.margin, self.margin, fw, fh, id = 'frame2'),  # Page 2
+                Frame (3*self.margin+fw, self.margin, fw, fh, id = 'frame3'),  # Page 3
+                Frame (self.margin, self.margin, fw, fh, id = 'frame4')  # Page 4
             ]
             rotate =  [False, True, False, True]
         elif self.layout == 8:
-            def defineFrame(self, x,y, w,h, m):
+            print("Defining frames for 8-page layout...")
+            def defineFrame(x,y, w,h, m):
                 return Frame(x+m, y+m, w-m-m, h-m-m)
             # 6 5 4 3 upside down
             # 7 0 1 2
-            fWidth = docWidth / 4
-            fHeight = docHeight / 2
+            fWidth = width / 4
+            fHeight = height / 2
 
-            f0 = self.defineFrame(0*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
-            f1 = self.defineFrame(1*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
-            f2 = self.defineFrame(2*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
-            f3 = self.defineFrame(3*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f0 = defineFrame(0*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f1 = defineFrame(1*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f2 = defineFrame(2*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f3 = defineFrame(3*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
             # top half (upside down)
-            f4 = self.defineFrame(0*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
-            f5 = self.defineFrame(1*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
-            f6 = self.defineFrame(2*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
-            f7 = self.defineFrame(3*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f4 = defineFrame(0*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f5 = defineFrame(1*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f6 = defineFrame(2*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
+            f7 = defineFrame(3*fWidth, 0*fHeight, fWidth, fHeight, self.margin)
 
             frames = [f1, f2, f3, f4, f5, f6, f7, f0]
             rotate = [False, False, False, True, False, False, False, True]
@@ -155,20 +188,22 @@ class Booklet:
             leading=leading)
 
     def drawFoldlines(self):
-        if self.layout == 4:
-            self.canvas.saveState()
-            self.canvas.setDash(1,5) # on off
+        self.canvas.saveState()
+        self.canvas.setDash(1,5) # on off
+
+        if self.layout == 2:
+            self.canvas.setStrokeColor('red')
+            self.canvas.line(self.docSize[0]/2, 0, self.docSize[0]/2, self.docSize[1])
+        elif self.layout == 4:
             self.canvas.line(0, self.docSize[1]/2, self.docSize[0], self.docSize[1]/2)
             self.canvas.line(self.docSize[0]/2, 0, self.docSize[0]/2, self.docSize[1])
-            self.canvas.restoreState()
         elif self.layout == 8:
-            self.canvas.saveState()
-            self.canvas.setDash(1,5) # on off
             self.canvas.line(0, self.docSize[1]/2, self.docSize[0], self.docSize[1]/2)
             self.canvas.setStrokeColor('red')
             for x in [2.75, 5.5, 8.25]: #TODO adjust to doc size
                 self.canvas.line(x*inch, 0*inch, x*inch, 8.5*inch)
-            self.canvas.restoreState()
+
+        self.canvas.restoreState()
 
     def RotatePage(self):
         self.canvas.translate(self.docSize[0]/2, self.docSize[1]/2)
@@ -240,15 +275,15 @@ class Booklet:
             if self.frameN >= len(self.frames):
                 self.frameN = 0
                 self.canvas.showPage()
-                self.frames = self.defineFrames(self.docSize, self.margin)
-                self.frameRotate = self.defineRotate()
-                if self.drawFolds: self.drawFoldlines(self.canvas)
+                #TODO do we need this line?
+                self.frames, self.frameRotate = self.defineFrames()
+                if self.drawFolds: self.drawFoldlines() #self.canvas)
             self.currentFrame = self.frames[self.frameN]
             
             if self.frameRotate[self.frameN]:
                 self.RotatePage()
             if self.showFrames: 
-                print (f"Drawing frame boundary for frame {self.frameN}...")
+                #print (f"Drawing frame boundary for frame {self.frameN}...")
                 self.currentFrame.drawBoundary(self.canvas)
             self.currentFrame.add(obj, self.canvas) #adding the failed content
 
