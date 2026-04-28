@@ -16,7 +16,7 @@ Eight is
 COMMANDS
 .font <font params> adjust the current font
 .newpage    force a framebreak (page because pocket docs)
-.spacer   add a spacer of current font size
+.spacer     add a spacer of current font size
 .file       Read in a file and process it, ignore config in the file 
 
 CONFIG
@@ -24,28 +24,30 @@ CONFIG
 .frames     Show frames
 .fold       Show folds 
 .margin #   Size of margins
+.separator  Separator/spacer after every paragraph
+.cleaner    Remove fractions and degree symbol    
 
 FONT PARAMETERS
-
-
-PROCESS
-- Only one argument, the input file
-- Input file can contain the configuration - Only one time config
-- If no config, then use defaults (TBD)
-- Ater config, then the text to generate
-- Can do the commands above only
-
-- Process text has an optional cleaner 
+            textColor=colors.black,
+            backColor=colors.white,
+            alignment=reportlab.lib.enums.TA_LEFT,
+            align=None,
+            firstLineIndent=0,
+            leftIndent=0,
+            bulletIndent=0,
+            fontName='Helvetica',
+            fontSize=10,
+            spaceBefore=0,
+            spaceAfter=None,
+            leading=None):
 
 MASTER TODO
 - Check on redefining frames given this prototype:
     Frame(x1, y1, width,height, leftPadding=6, bottomPadding=6, rightPadding=6, topPadding=6, id=None, showBoundary=0)
 - 2 page layout needs to swap frames page by page
+- Process text has an optional cleaner 
 
 SHORT TERM TODO
-- Different font sizes for the layout
-- Folds
-- Checks setup commands
 """
 
 import argparse
@@ -58,13 +60,13 @@ import reportlab.lib.enums
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import Frame, FrameBreak, Spacer, Paragraph
+from reportlab.platypus import Frame, FrameBreak, Spacer, Paragraph, PageBreak
 
 class Booklet: 
     """ The render engine for the pocket book maker
         Proper add the rotation which has to be done manually
     """
-    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.2*inch, showFrames=True, drawFolds=True):
+    def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.2*inch, showFrames=True, drawFolds=True, separator=False):
         self.docSize = docSize
         self.margin = marginSize # CFG
         self.showFrames = showFrames # CFG
@@ -74,9 +76,10 @@ class Booklet:
         self.layout = None
         self.nameOut = nameOut
         self.fontSize = None
+        self.separator = separator
     
     def create(self):
-        print("Creating canvas and defining frames...")
+        #print("Creating canvas and defining frames...")
         if self.layout == None: self.layout = 8
         if self.layout == 8 or self.layout == 2: self.docSize = landscape(self.docSize) # other functions dependent upon layout
         if self.fontSize == None:
@@ -132,7 +135,7 @@ class Booklet:
             ]
             rotate =  [False, True, False, True]
         elif self.layout == 8:
-            print("Defining frames for 8-page layout...")
+            #print("Defining frames for 8-page layout...")
             def defineFrame(x,y, w,h, m):
                 return Frame(x+m, y+m, w-m-m, h-m-m)
             # 6 5 4 3 upside down
@@ -215,7 +218,7 @@ class Booklet:
         print(f"Processing input file '{inputFilename}'...")
         try:
             with open(inputFilename, 'r') as f:
-                print (f"Input file '{inputFilename}' opened successfully. Reading content...")
+                #print (f"Input file '{inputFilename}' opened successfully. Reading content...")
                 for line in f:
                     line = line.strip()
                     if self.canvas is None:
@@ -224,33 +227,36 @@ class Booklet:
                     else:
                         # process content lines and commands
                          self.processContentLine(line)
-            print(f"Input file '{inputFilename}' processed successfully.")
+            #print(f"Input file '{inputFilename}' processed successfully.")
         except FileNotFoundError:
             print(f"Error: Input file '{inputFilename}' not found.")
         except Exception as e:
             print(f"Error: {e}")
     
     def processHeaderLine(self, line):
-        print (f"Processing header line: '{line}'")
+        #print (f"Processing header line: '{line}'")
         # Process configuration commands in the header before creating the canvas
         if line.startswith('.layout'):
             try:
                 self.layout = int(line.split()[1])
             except (IndexError, ValueError):
                 print("Invalid layout value. Using default (4).")
-        elif line.startswith('.frames'):
+        elif line.startswith('.frames') or line.startswith ('.showframes'):
             arg = line.split()[1] if len(line.split()) > 1 else ''
             self.showFrames = arg.lower() not in ['0', 'false']
-        elif line.startswith('.fold'):
+        elif line.startswith('.fold') or line.startswith('.showfolds'):
             arg = line.split()[1] if len(line.split()) > 1 else ''
             self.drawFolds = arg.lower() not in ['0', 'false']
+        elif line.startswith('.separator'):
+            arg = line.split()[1] if len(line.split()) > 1 else ''
+            self.separator = arg.lower() not in ['0', 'false']
         elif line.startswith('.margin'):
             try:
                 self.margin = float(line.split()[1]) * inch
             except (IndexError, ValueError):
                 print("Invalid margin value. Using default (0.3 inch).")
         else:
-            print("Finished processing header. Creating canvas and frames...")
+            #print("Finished processing header. Creating canvas and frames...")
             # Stop processing header on first non-config line
             self.create()  # Create canvas and frames after processing header
             self.processContentLine(line)  # Process the first content line
@@ -262,14 +268,55 @@ class Booklet:
         else:
              self.handleContent(line)
 
+    def alignmentStrToEnum(self, alignstr):
+        match alignstr.lower():
+            case 'left':
+                return reportlab.lib.enums.TA_LEFT
+            case 'center':
+                return reportlab.lib.enums.TA_CENTER
+            case 'right':
+                return reportlab.lib.enums.TA_RIGHT
+            case 'justify':
+                return reportlab.lib.enums.TA_JUSTIFY
+            case _:
+                return reportlab.lib.enums.TA_LEFT
+    
+    def adjustCurrentStyle(self, modifiers):
+        # adust the current style in place; save with push/pop if needed
+        for mod in modifiers:
+            cmd = mod.split("=")
+            match cmd[0]:
+                case 'textColor' | 'backColor': 
+                    setattr(self.currentStyle, cmd[0], eval('colors.'+cmd[1]))
+                case 'alignment' | 'firstLineIndent' | 'fontSize' | 'leading' | 'leftIndent' | 'bulletIndent':
+                    setattr(self.currentStyle, cmd[0], int(cmd[1])) 
+                case 'align':
+                    setattr(self.currentStyle, 'alignment', self.alignmentStrToEnum(cmd[1].lower()))
+
     def handleCommand(self, line):
-        print ("Handling command: '{line}'")
+        #print (f"Handling command: '{line}'")
+        if line.startswith(".font"): #adjust the current font
+            tokens = line.split()
+            if len(tokens) > 1:
+                self.adjustCurrentStyle(tokens[1:])
+        elif line.startswith (".spacer"):
+            self.addObject(Spacer(1, self.currentStyle.fontSize))
+        elif line.startswith (".newpage") or line.startswith (".np"):
+            self.addObject(PageBreak())
+        elif line.startswith(".file"):
+            tokens = line.split()
+            self.processFile(tokens[1])
+        else:
+            print(f"Unknown command: '{line}'")
 
     def handleContent(self, line):
         #print (f"Handling content line: '{line}'")
         #TODO if obj is continuously too large need to punch out
         #TODO if spacer don't put if we moved to a new column
         obj = Paragraph(line, self.currentStyle)
+        self.addObject(obj, self.separator)
+
+    def addObject(self, obj, spacer=False):
         if self.currentFrame.add(obj, self.canvas) == 0: # won't handle a giant paragraph
             self.frameN += 1
             if self.frameN >= len(self.frames):
@@ -286,6 +333,8 @@ class Booklet:
                 #print (f"Drawing frame boundary for frame {self.frameN}...")
                 self.currentFrame.drawBoundary(self.canvas)
             self.currentFrame.add(obj, self.canvas) #adding the failed content
+        elif spacer:
+            self.addObject(Spacer(1, self.currentStyle.fontSize))
 
     def build(self):
         #self.canvas.setAuthor(Cfg.get("author"))
@@ -330,7 +379,7 @@ def main():
     print(f"Input file: {inputFilename}")
     print(f"Output file: {outputFilename}")
 
-    print ("Starting booklet generation...")
+    #print ("Starting booklet generation...")
     booklet = Booklet(nameOut=outputFilename)
     print (f"Booklet instance created. Processing input file '{inputFilename}'...")
     booklet.processFile(inputFilename)
