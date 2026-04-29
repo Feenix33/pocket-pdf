@@ -48,6 +48,9 @@ MASTER TODO
 - Process text has an optional cleaner 
 
 SHORT TERM TODO
+.title page
+.cleaner
+test bold/italic
 """
 
 import argparse
@@ -68,15 +71,20 @@ class Booklet:
     """
     def __init__(self,nameOut="output.pdf", docSize=letter, marginSize=0.2*inch, showFrames=True, drawFolds=True, separator=False):
         self.docSize = docSize
-        self.margin = marginSize # CFG
-        self.showFrames = showFrames # CFG
-        self.drawFolds = drawFolds # CFG
-        self.frameN = 0
+        self.margin = marginSize # how big is the margin for each frame
+        self.showFrames = showFrames # show the frame borders
+        self.drawFolds = drawFolds # draw the fold lines or not
+        self.frameN = 0 # control variable
         self.canvas = None
         self.layout = None
         self.nameOut = nameOut
         self.fontSize = None
-        self.separator = separator
+        self.separator = separator # put a spacer after every paragraph
+        self.author = None # Metadata
+        self.title = None # Metadata
+        self.subject = None # Metadata
+        self.keywords = None # Metadata
+        self.cleaner = False # run the text through the cleaner
     
     def create(self):
         #print("Creating canvas and defining frames...")
@@ -168,7 +176,7 @@ class Booklet:
             firstLineIndent=0,
             leftIndent=0,
             bulletIndent=0,
-            fontName='Helvetica',
+            fontName='Times', #'Helvetica',
             fontSize=10,
             spaceBefore=0,
             spaceAfter=None,
@@ -215,7 +223,7 @@ class Booklet:
 
     def processFile(self, inputFilename):
         # Process the input file content and generate the output PDF.
-        print(f"Processing input file '{inputFilename}'...")
+        #print(f"Processing input file '{inputFilename}'...")
         try:
             with open(inputFilename, 'r') as f:
                 #print (f"Input file '{inputFilename}' opened successfully. Reading content...")
@@ -255,6 +263,17 @@ class Booklet:
                 self.margin = float(line.split()[1]) * inch
             except (IndexError, ValueError):
                 print("Invalid margin value. Using default (0.3 inch).")
+        elif line.startswith('.author'):
+            self.author = line.split(' ', 1)[1] if len(line.split()) > 1 else None
+        elif line.startswith('.title'):
+            self.title = line.split(' ', 1)[1] if len(line.split()) > 1 else None
+        elif line.startswith('.subject'):
+            self.subject = line.split(' ', 1)[1] if len(line.split()) > 1 else None
+        elif line.startswith('.keywords'):
+            self.keywords = line.split(' ', 1)[1] if len(line.split()) > 1 else None
+        elif line.startswith('.cleaner'):
+            arg = line.split()[1] if len(line.split()) > 1 else ''
+            self.cleaner = arg.lower() not in ['0', 'false']
         else:
             #print("Finished processing header. Creating canvas and frames...")
             # Stop processing header on first non-config line
@@ -282,14 +301,23 @@ class Booklet:
                 return reportlab.lib.enums.TA_LEFT
     
     def adjustCurrentStyle(self, modifiers):
-        # adust the current style in place; save with push/pop if needed
+        # adust the current style in place
+        #print (f"Adjusting current style with modifiers: {modifiers}")
         for mod in modifiers:
             cmd = mod.split("=")
             match cmd[0]:
                 case 'textColor' | 'backColor': 
                     setattr(self.currentStyle, cmd[0], eval('colors.'+cmd[1]))
+                case 'color':
+                    setattr(self.currentStyle, 'textColor', eval('colors.'+cmd[1]))
                 case 'alignment' | 'firstLineIndent' | 'fontSize' | 'leading' | 'leftIndent' | 'bulletIndent':
                     setattr(self.currentStyle, cmd[0], int(cmd[1])) 
+                case 'size':
+                    setattr(self.currentStyle, 'fontSize', int(cmd[1]))
+                case 'fontName': 
+                    setattr(self.currentStyle, cmd[0], cmd[1])
+                case 'name':
+                    setattr(self.currentStyle, 'fontName', cmd[1])
                 case 'align':
                     setattr(self.currentStyle, 'alignment', self.alignmentStrToEnum(cmd[1].lower()))
 
@@ -310,13 +338,14 @@ class Booklet:
             print(f"Unknown command: '{line}'")
 
     def handleContent(self, line):
-        #print (f"Handling content line: '{line}'")
-        #TODO if obj is continuously too large need to punch out
-        #TODO if spacer don't put if we moved to a new column
+        if self.cleaner:
+            line = line.replace('½', '1/2').replace('¼', '1/4').replace('¾', '3/4').replace('°', ' deg')
         obj = Paragraph(line, self.currentStyle)
         self.addObject(obj, self.separator)
 
     def addObject(self, obj, spacer=False):
+        #TODO if obj is continuously too large need to punch out
+        #TODO if spacer don't put if we moved to a new column
         if self.currentFrame.add(obj, self.canvas) == 0: # won't handle a giant paragraph
             self.frameN += 1
             if self.frameN >= len(self.frames):
@@ -337,10 +366,10 @@ class Booklet:
             self.addObject(Spacer(1, self.currentStyle.fontSize))
 
     def build(self):
-        #self.canvas.setAuthor(Cfg.get("author"))
-        #self.canvas.setTitle(Cfg.get("title"))
-        #self.canvas.setSubject(Cfg.get("subject"))
-        #self.canvas.setKeywords(Cfg.get("keywords"))
+        if self.author != None: self.canvas.setAuthor(self.author)
+        if self.title != None: self.canvas.setTitle(self.title)
+        if self.subject != None: self.canvas.setSubject(self.subject)
+        if self.keywords != None: self.canvas.setKeywords(self.keywords)
         self.canvas.save()
 
 
@@ -376,12 +405,11 @@ def main():
     """
     inputFilename, outputFilename = parse_arguments()
 
-    print(f"Input file: {inputFilename}")
-    print(f"Output file: {outputFilename}")
+    print(f"Converting: {inputFilename} to {outputFilename}")
 
     #print ("Starting booklet generation...")
     booklet = Booklet(nameOut=outputFilename)
-    print (f"Booklet instance created. Processing input file '{inputFilename}'...")
+    #print (f"Booklet instance created. Processing input file '{inputFilename}'...")
     booklet.processFile(inputFilename)
     booklet.build()
 

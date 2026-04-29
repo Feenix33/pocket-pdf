@@ -1,17 +1,26 @@
 .layout 8
+.author Howdy Doodie
+.title "This is a test"
+.keywords Alpha Bravo Charlie
+.subject Reading
+.cleaner
 .fold true
 .frames true
 .separator true
 .margin 0.15
-.font textColor=red
 One one one one one One one one one one One one one one one
 1. Neque modi quisquam voluptatem dolor. Dolorem tempora sit velit. Tempora velit aliquam quaerat dolor velit. Consectetur modi velit consectetur dolor quisquam ipsum numquam. Dolor est aliquam non eius velit ipsum. Amet numquam quiquia neque velit tempora. Numquam quisquam labore amet. Eius sit voluptatem neque.
-2. Labore est dolore amet sit porro eius. Numquam est est quiquia modi ut dolorem sit. Amet velit aliquam non sed dolor est. Sit modi quisquam non aliquam quaerat etincidunt. Est neque eius magnam eius etincidunt. Consectetur voluptatem consectetur sed numquam velit dolor.
-.font textColor=black
-3. Dolore non quisquam quisquam ipsum consectetur ipsum eius. Tempora dolorem quaerat aliquam. Consectetur dolor magnam dolorem ipsum eius dolor dolorem. Est velit adipisci amet etincidunt etincidunt velit porro. Ut quisquam sit labore tempora eius consectetur. Dolor eius quaerat non numquam neque sed. Amet dolorem dolorem numquam non consectetur ut eius. Eius neque quaerat est. Dolore quiquia labore dolor amet.
+.fontsize=10
+.fontName=Helvetica
 .font textColor=red
+Test line of symbols ½  ¼  ¾ °
+2. Labore est dolore amet sit porro eius. Numquam est est quiquia modi ut dolorem sit. Amet velit aliquam non sed dolor est. Sit modi quisquam non aliquam quaerat etincidunt. Est neque eius magnam eius etincidunt. Consectetur voluptatem consectetur sed numquam velit dolor.
+.font textColor=blue
+.font name=Courier
+3. Dolore non quisquam quisquam ipsum consectetur ipsum eius. Tempora dolorem quaerat aliquam. Consectetur dolor magnam dolorem ipsum eius dolor dolorem. Est velit adipisci amet etincidunt etincidunt velit porro. Ut quisquam sit labore tempora eius consectetur. Dolor eius quaerat non numquam neque sed. Amet dolorem dolorem numquam non consectetur ut eius. Eius neque quaerat est. Dolore quiquia labore dolor amet.
 .file alpha.txt
 .font textColor=black
+.font size=7
 .np
 4. Consectetur amet tempora ut adipisci ipsum. Porro ipsum aliquam modi velit velit dolor neque. Sed aliquam dolore quiquia sit. Quisquam quiquia dolore adipisci labore non quisquam. Dolorem neque numquam quisquam. Voluptatem tempora quaerat eius. Numquam quiquia aliquam non non aliquam. Quaerat numquam velit adipisci magnam dolorem non. Dolore aliquam labore quaerat ipsum.
 5. Eius quiquia porro tempora dolore neque numquam. Labore magnam quaerat magnam quisquam tempora. Sit ipsum dolore sed ut dolorem. Non adipisci neque velit. Magnam velit amet amet.
