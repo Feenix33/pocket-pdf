@@ -46,9 +46,6 @@ TODO
 - Check on redefining frames given this prototype:
     Frame(x1, y1, width,height, leftPadding=6, bottomPadding=6, rightPadding=6, topPadding=6, id=None, showBoundary=0)
 - 2 page layout needs to swap frames page by page
-- .title page
-- test bold/italic
-- recipe formatter
 
 """
 
@@ -224,7 +221,7 @@ class Booklet:
         # Process the input file content and generate the output PDF.
         #print(f"Processing input file '{inputFilename}'...")
         try:
-            with open(inputFilename, 'r') as f:
+            with open(inputFilename, 'r', encoding='latin-1') as f:
                 #print (f"Input file '{inputFilename}' opened successfully. Reading content...")
                 for line in f:
                     line = line.strip()
@@ -381,7 +378,7 @@ class Booklet:
             ("small", "sm"), ("medium", "med"), ("large", "lg"), ("minute", "min"),
             ("minutes", "min"), ("pound", "lb"), ("cups", "c"), ("Bake for ", "Bake "),
             ("bake for ", "bake "), ("degrees", "deg"), ("Preheat oven to ", "Oven "),
-            ("Cool for ", "Cool "), 
+            ("deg F", "F"), ("deg C", "C"), ("Cool for ", "Cool "), 
             # Add more pairs as needed
         ]
         result = line
