@@ -26,6 +26,7 @@ CONFIG
 .margin #   Size of margins
 .separator  Separator/spacer after every paragraph
 .cleaner    Remove fractions and degree symbol    
+.scrubber   Shortens some recipe words
 
 FONT PARAMETERS
             textColor=colors.black,
@@ -41,16 +42,14 @@ FONT PARAMETERS
             spaceAfter=None,
             leading=None):
 
-MASTER TODO
+TODO
 - Check on redefining frames given this prototype:
     Frame(x1, y1, width,height, leftPadding=6, bottomPadding=6, rightPadding=6, topPadding=6, id=None, showBoundary=0)
 - 2 page layout needs to swap frames page by page
-- Process text has an optional cleaner 
+- .title page
+- test bold/italic
+- recipe formatter
 
-SHORT TERM TODO
-.title page
-.cleaner
-test bold/italic
 """
 
 import argparse
@@ -60,10 +59,8 @@ from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 import reportlab.lib.enums 
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import Frame, FrameBreak, Spacer, Paragraph, PageBreak
+from reportlab.platypus import Frame, Spacer, Paragraph, PageBreak
 
 class Booklet: 
     """ The render engine for the pocket book maker
@@ -81,10 +78,12 @@ class Booklet:
         self.fontSize = None
         self.separator = separator # put a spacer after every paragraph
         self.author = None # Metadata
+        self.titlepage = False # whether to put a title page in front of the booklet
         self.title = None # Metadata
         self.subject = None # Metadata
         self.keywords = None # Metadata
         self.cleaner = False # run the text through the cleaner
+        self.scrubber = False # run the text through the scrubber
     
     def create(self):
         #print("Creating canvas and defining frames...")
@@ -265,6 +264,9 @@ class Booklet:
                 print("Invalid margin value. Using default (0.3 inch).")
         elif line.startswith('.author'):
             self.author = line.split(' ', 1)[1] if len(line.split()) > 1 else None
+        elif line.startswith('.titlepage'):
+            arg = line.split()[1] if len(line.split()) > 1 else ''
+            self.titlepage = arg.lower() not in ['0', 'false']
         elif line.startswith('.title'):
             self.title = line.split(' ', 1)[1] if len(line.split()) > 1 else None
         elif line.startswith('.subject'):
@@ -274,12 +276,38 @@ class Booklet:
         elif line.startswith('.cleaner'):
             arg = line.split()[1] if len(line.split()) > 1 else ''
             self.cleaner = arg.lower() not in ['0', 'false']
+        elif line.startswith('.scrubber'):
+            arg = line.split()[1] if len(line.split()) > 1 else ''
+            self.scrubber = arg.lower() not in ['0', 'false']
         else:
             #print("Finished processing header. Creating canvas and frames...")
             # Stop processing header on first non-config line
             self.create()  # Create canvas and frames after processing header
+            if self.titlepage:
+                self.buildTitlePage()
             self.processContentLine(line)  # Process the first content line
     
+    def buildTitlePage(self):
+        # Build a simple title page using the metadata
+        if self.title == None and self.author == None:
+            return # nothing to put on the title page
+        title_style = self.buildParagraphStyle(fontSize=self.fontSize*2, alignment=reportlab.lib.enums.TA_CENTER)
+        author_style = self.buildParagraphStyle(fontSize=self.fontSize*1.5, alignment=reportlab.lib.enums.TA_CENTER)
+        #self.currentFrame.height = 0.75 * self.currentFrame.height # give it more room for the title page
+        #self.currentFrame._y1 += 0.25 * self.currentFrame.height # move it down a bit
+        #print(f"Current frame is {self.frameN} with dimensions {self.currentFrame._width}x{self.currentFrame._height} at position ({self.currentFrame._x1}, {self.currentFrame._y1})")
+        self.canvas.saveState()
+        self.canvas.translate(0, -self.currentFrame._height/4) # move to the vertical center of the frame
+        if self.title:
+            title_para = Paragraph(self.title, title_style)
+            self.addObject(title_para)
+            self.addObject(Spacer(1, self.currentStyle.fontSize*4))
+        if self.author:
+            author_para = Paragraph(f"by {self.author}", author_style)
+            self.addObject(author_para)
+        self.addObject(PageBreak())
+        self.canvas.restoreState()
+
     def processContentLine(self, line):
         # Process content lines and commands after the header has been processed
         if line.startswith('.'):
@@ -337,9 +365,36 @@ class Booklet:
         else:
             print(f"Unknown command: '{line}'")
 
+    def scrub(self, line):
+        """
+        Replace all occurrences of strings in the line based on a data structure
+        of string pairs. The first string in each pair is replaced with the second.
+        Args: line (str): The text line to process
+        Returns: str: The scrubbed text with all replacements made
+        """
+        # Data structure: list of tuples with (original_string, replacement_string)
+        # Strings can contain spaces
+        replacements = [
+            ("teaspoon", "tsp"), ("tablespoon", "Tbl"), ("Tablespoon", "Tbl"), ("tbsp", "Tbl"),
+            ("Tbsp", "Tbl"), ("Tbl of ", "Tbl "), ("tsp of ", "tsp "), ("cup", "c"),
+            ("c of ", "c "), ("white sugar", "sugar"), ("ounces", "oz"), ("ounce", "oz"),
+            ("small", "sm"), ("medium", "med"), ("large", "lg"), ("minute", "min"),
+            ("minutes", "min"), ("pound", "lb"), ("cups", "c"), ("Bake for ", "Bake "),
+            ("bake for ", "bake "), ("degrees", "deg"), ("Preheat oven to ", "Oven "),
+            ("Cool for ", "Cool "), 
+            # Add more pairs as needed
+        ]
+        result = line
+        for original, replacement in replacements:
+            result = result.replace(original, replacement)
+    
+        return result
+
     def handleContent(self, line):
         if self.cleaner:
             line = line.replace('½', '1/2').replace('¼', '1/4').replace('¾', '3/4').replace('°', ' deg')
+        if self.scrubber:
+            line = self.scrub(line)
         obj = Paragraph(line, self.currentStyle)
         self.addObject(obj, self.separator)
 
